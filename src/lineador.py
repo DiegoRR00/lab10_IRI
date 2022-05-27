@@ -16,6 +16,7 @@ class line_follower:
         self.bridge = CvBridge()
         self.dt = 0.1
         self.max_v = 0.3
+        self.estancado = False
         rospy.init_node("line_follower")
 
         rospy.Subscriber('/video_source/raw',Image,self.source_callback)
@@ -103,18 +104,33 @@ class line_follower:
             except:
                 print("No lineas")
             if continuar:
-                print("linas",lines)
+                print("linas",len(lines))
                 vel = 0.1
                 dtheta = 0
+                enPasoZebra = False
                 if len(lines) > 20:
-                    vel = 0
-                    dtheta = 0
+                    #detector = cv2.SimpleBlobDetector_create()
+                    #keys = detector.detect(img_bordes)
+                    ret,thresh = cv2.threshold(imagen_recortada,127,255,cv2.THRESH_BINARY_INV)
+                    contours, hirechary = cv2.findContours(thresh,cv2.RETR_LIST,cv2.CHAIN_APPROX_NONE)
+                    valCont = 0
+                    print("c",len(contours))
+                    for c in contours:
+                        if len(c) > 2:
+                            valCont += 1
+                    print("buenos",valCont)
+                    if valCont > 3:
+                        enPasoZebra = True
+                        self.estancado = True
+                        vel = 0
+                        dtheta = 0
+                    
                     for l in lines:
                         #print(l)
                         x1,y1,x2,y2 = l[0][:]
                         #print(x1,y1,x2,y2)
                         cv2.line(negro,(x1,y1),(x2,y2),(255,255,255),1)
-                else:
+                if not enPasoZebra:
                     idx = tamano.index(min(tamano))
                     x1,y1,x2,y2 = lines[0][idx]
                     cv2.line(negro,(x1,y1),(x2,y2),(255,255,255),1)
@@ -132,6 +148,9 @@ class line_follower:
                     dtheta = np.arctan2(puntoObjetivo[1]-puntoMedio[1],puntoObjetivo[0]-puntoMedio[0]) + np.pi/2#self.getAngle(puntoObjetivo[0],puntoObjetivo[1],puntoObjetivo[0],puntoMedio[1])
                     print("dt",dtheta)
                 msg = Twist()
+                if self.estancado:
+                    vel = 0
+                    dtheta = 0
                 msg.linear.x = vel
                 msg.linear.y = 0
                 msg.linear.z = 0
@@ -170,4 +189,3 @@ if __name__ == '__main__':
         lineator.run()
     except:
         pass
-
