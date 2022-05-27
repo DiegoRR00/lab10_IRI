@@ -58,7 +58,7 @@ class line_follower:
             #img_bordes = cv2.Canny(imagen_recortada, 100, 170, apertureSize = 3)
             img_bordes = cv2.Canny(imagen_recortada, 10, 100, apertureSize = 3)
             k = np.ones((3,3),np.uint8)
-            img_bordes = cv2.dilate(img_bordes,k,iterations = 1)
+            #img_bordes = cv2.dilate(img_bordes,k,iterations = 1)
             negro = np.zeros(img_bordes.shape,np.uint8)
             
             #lines = cv2.HoughLines(img_bordes, 1.2, np.pi / 180, 30,0,0)
@@ -85,10 +85,13 @@ class line_follower:
                 cv2.line(negro, (x1, y1), (x2, y2), (255, 255, 255), 1)
             
             print("lol")
-            for x1,y1,x2,y2 in lines[0]:
-                print(x1,y1,x2,y2)
+            print(len(lines))
+            print(len(lines[0]))
+            for l in lines:
+                #print(l)
+                x1,y1,x2,y2 = l[0][:]
+                #print(x1,y1,x2,y2)
                 cv2.line(negro,(x1,y1),(x2,y2),(255,255,255),1)
-            #
             '''
             tamano = []
             continuar = False
@@ -100,24 +103,36 @@ class line_follower:
             except:
                 print("No lineas")
             if continuar:
-                idx = tamano.index(min(tamano))
-                x1,y1,x2,y2 = lines[0][idx]
-                cv2.line(negro,(x1,y1),(x2,y2),(255,255,255),1)
-                puntoMedio = [img_bordes.shape[0]-1,img_bordes.shape[1]/2]
-                
-                print("linea",(x1,y1),(x2,y2))
-                distancias = [self.getDistance(x1,y1,puntoMedio[0],puntoMedio[1]),self.getDistance(x2,y2,puntoMedio[0],puntoMedio[1])]
-                print("Puntomedio y distancias",puntoMedio,distancias)
-                if distancias[0] > distancias[1]:
-                    puntoObjetivo = [x1,y1]
+                print("linas",lines)
+                vel = 0.1
+                dtheta = 0
+                if len(lines) > 20:
+                    vel = 0
+                    dtheta = 0
+                    for l in lines:
+                        #print(l)
+                        x1,y1,x2,y2 = l[0][:]
+                        #print(x1,y1,x2,y2)
+                        cv2.line(negro,(x1,y1),(x2,y2),(255,255,255),1)
                 else:
-                    puntoObjetivo = [x2,y2]
+                    idx = tamano.index(min(tamano))
+                    x1,y1,x2,y2 = lines[0][idx]
+                    cv2.line(negro,(x1,y1),(x2,y2),(255,255,255),1)
+                    puntoMedio = [img_bordes.shape[0]-1,img_bordes.shape[1]/2]
+                    
+                    print("linea",(x1,y1),(x2,y2))
+                    distancias = [self.getDistance(x1,y1,puntoMedio[0],puntoMedio[1]),self.getDistance(x2,y2,puntoMedio[0],puntoMedio[1])]
+                    print("Puntomedio y distancias",puntoMedio,distancias)
+                    if distancias[0] > distancias[1]:
+                        puntoObjetivo = [x1,y1]
+                    else:
+                        puntoObjetivo = [x2,y2]
 
-                print("pObj",puntoObjetivo)
-                dtheta = np.arctan2(puntoObjetivo[1]-puntoMedio[1],puntoObjetivo[0]-puntoMedio[0]) + np.pi/2#self.getAngle(puntoObjetivo[0],puntoObjetivo[1],puntoObjetivo[0],puntoMedio[1])
-                print("dt",dtheta)
+                    print("pObj",puntoObjetivo)
+                    dtheta = np.arctan2(puntoObjetivo[1]-puntoMedio[1],puntoObjetivo[0]-puntoMedio[0]) + np.pi/2#self.getAngle(puntoObjetivo[0],puntoObjetivo[1],puntoObjetivo[0],puntoMedio[1])
+                    print("dt",dtheta)
                 msg = Twist()
-                msg.linear.x = 0.1
+                msg.linear.x = vel
                 msg.linear.y = 0
                 msg.linear.z = 0
                 msg.angular.x = 0
@@ -130,58 +145,6 @@ class line_follower:
             msg_img = Image()
             msg_img = self.bridge.cv2_to_imgmsg(negro)
             self.debug_msg.publish(msg_img)
-               
-            '''
-            lines_good = []
-            rhos = lines[:,0,0]
-            rhos.sort()
-            #print(rhos)
-            for i in range(len(rhos)-1):
-                derivada = rhos[i] - rhos[i+1]
-                #print(derivada)
-                if abs(derivada) >= 25:
-                    rho, theta = lines[i,0,:]
-                    lines_good.append([rho,theta])
-                    #print(lines[i,:,:])
-            rho, theta = lines[len(rhos)-1,0,:]
-            lines_good.append([rho,theta])
-            #print(lines_good)
-        
-            #print(len(lines_good))
-            
-            for i in range(len(lines_good)):
-                rho, theta = lines_good[i][:]
-                a = np.cos(theta)
-                b = np.sin(theta)
-                x0 = a * rho
-                y0 = b * rho
-                x1 = int(x0 + 1000 * (-b))
-                y1 = int(y0 + 1000 * (a))
-                x2 = int(x0 - 1000 * (-b))
-                y2 = int(y0 - 1000 * (a))
-                
-                cv2.line(negro, (x1, y1), (x2, y2), (255, 255, 255), 1)
-            rectaProm = []
-            if len(lines_good) > 2:
-                rhos = lines_good[:][0]
-                thetas = lines_good[:][1]
-                rectaProm = [rhos[int(len(rhos)/2)],thetas[int(len(thetas)/2)]]
-
-            else:
-                rectaProm = [lines_good[0][0],lines_good[0][1]]
-            
-
-            ref = [int(negro.shape[1]/2),0]
-            error = [ref[0]-rectaProm[0],ref[1]-rectaProm[1]]
-            print("error",error)
-            kp = 0.01
-            if abs(error[0]) > 0.1:
-                omega = error[0] * kp
-                v = self.max_v
-            '''
-            #except:
-                #print("toy sad")
-                #pass
         
 
         
@@ -207,36 +170,4 @@ if __name__ == '__main__':
         lineator.run()
     except:
         pass
-'''
-#image = cv2.resize(image, None, fx=2, fy=2, interpolation = cv2.INTER_CUBIC)
 
-# Grayscale and Canny Edges extracted
-gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-edges = cv2.Canny(gray, 100, 170, apertureSize = 3)
-cv2.imshow('Canny', edges)
-
-# Run HoughLines using a rho accuracy of 1 pixel
-# theta accuracy aof np.pi / 180 which is 1 degree
-# The line threshold is set to 240 (number of points on line)
-lines = cv2.HoughLines(edges, 1, np.pi / 180, 85,0,0)
-
-# Iterate through each line and convert it to the format
-for i in range(len(lines)):
-    rho, theta = lines[i,0,:]
-    a = np.cos(theta)
-    b = np.sin(theta)
-    x0 = a * rho
-    y0 = b * rho
-    x1 = int(x0 + 1000 * (-b))
-    y1 = int(y0 + 1000 * (a))
-    x2 = int(x0 - 1000 * (-b))
-    y2 = int(y0 - 1000 * (a))
-    if abs(a) < 0.7:
-        cv2.line(image, (x1, y1), (x2, y2), (255, 0, 0), 1)
-    else:
-        cv2.line(image, (x1, y1), (x2, y2), (0, 255, 0), 1)
-
-cv2.imshow('Hough Lines', image)
-cv2.waitKey(0)
-cv2.destroyAllWindows()
-'''
